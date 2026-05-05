@@ -1,0 +1,177 @@
+local notify = getfenv().notify or warn
+local ver = "0.0.4"
+return {
+    PluginName = "xsenon & stuff",
+    PluginDescription = `Version {ver}`,
+    Commands = {
+        hydroxide = {
+            ListName = "hydroxide / hydro / hydrospy / hdr",
+            Description = "launches hydroxide that allows to spy remote events",
+            Aliases = {"hydro","hydrospy","hdr"},
+            Function = function()
+                local owner = "Upbolt"
+                local branch = "revision"
+
+                local function webImport(file)
+                    return loadstring(game:HttpGetAsync(("https://raw.githubusercontent.com/%s/Hydroxide/%s/%s.lua"):format(owner, branch, file)), file .. '.lua')()
+                end
+
+                webImport("init")	
+                webImport("ui/main")
+                notify("Hydroxide Launched")
+            end
+        },
+        betterdex = {
+            ListName = "betterdex / bdex",
+            Description = "launches better version of dex",
+            Aliases = {"bdex"},
+            Function = function()
+                loadstring(game:HttpGet("https://raw.githubusercontent.com/jodta/my-scripts/refs/heads/main/Dex%2B%2B/Decompiler%20Fix.lua"))()
+                notify("Dex++ Launched")
+            end
+        },
+		ketamine = {
+            ListName = "ketamine / ktm",
+            Description = "the best remote spy that has a lot of functions",
+            Aliases = {"ktm"},
+            Function = function()
+                loadstring(game:HttpGet("https://raw.githubusercontent.com/InfernusScripts/Ketamine/refs/heads/main/Ketamine.lua"))()
+                notify("Ketamine Launched")
+            end
+        },
+		placefinder = {
+            ListName = "placefinder / pf",
+            Description = "launches place finder that allows you to see all experience places",
+            Aliases = {"pf"},
+            Function = function()
+                loadstring(game:HttpGet("https://raw.githubusercontent.com/ACEtheSOLID/NoobyHub-Reborn/refs/heads/main/PlaceFinder-v0.1.lua"))()
+                notify("PlaceFinder Launched")
+            end
+        },
+		disablerendering = {
+            ListName = "disablerendering / disrender / dr",
+            Description = "disables 3d render to prevent pc from lagging while not using roblox",
+            Aliases = {"disrender","dr"},
+            Function = function()
+                if not setfpscap and not getfpscap then
+					notify("Your executor is not supported! (setfpscap/getfpscap)")
+					return
+				end
+				if not getgenv().fpscap then
+					getgenv().fpscap = getfpscap()
+				end
+				local UserInputService, RunService = game:GetService("UserInputService"), game:GetService("RunService")
+
+				UserInputService.WindowFocusReleased:Connect(function()
+					RunService:Set3dRenderingEnabled(false); setfpscap(5)
+				end)
+
+				UserInputService.WindowFocused:Connect(function()
+					RunService:Set3dRenderingEnabled(true); setfpscap(getgenv().fpscap)
+				end)
+                notify("DisableRendering Launched")
+            end
+        },
+        fastserverhop = {
+            ListName = "fastserverhop / fastshop / fhop",
+            Description = "server hop but faster",
+            Aliases = {"fastshop","fhop"},
+            Function = function()
+                local API, HttpService, TeleportService, CoreGui = nil, game:GetService("HttpService"), game:GetService("TeleportService"), game:GetService("CoreGui");
+                local RemoveErrorPrompts = true --prevents error messages from popping up.
+                local IterationSpeed = 0.1 --speed in which next server is picked for teleport (the higher it is the slower the teleports but more likely to work).
+                local ExcludefullServers = true --slightly beneficial if the game is high ccu or mid ccu, if not, set to false.
+                local SaveTeleportAttempts = false --saves every teleports that are attempted in jobid to "Attempts.txt" file
+                local API = "https://games.roblox.com/v1/games/" .. game.PlaceId .. "/servers/Public?limit=100"
+
+                local function EncodeToFile(JSONString)
+                local success, JSONData = pcall(function()
+                    return HttpService:JSONDecode(JSONString)
+                end)
+                if success and JSONData.data then
+                    JSONData.gameId = game.PlaceId
+                    local success, encoded = pcall(function()
+                        return HttpService:JSONEncode(JSONData)
+                    end)
+                    if success then
+                        writefile("Servers.JSON", encoded)
+                    else
+                        warn("Failed to encode JSON string.")
+                        return nil
+                    end
+                else
+                    warn("Failed to decode JSONData.")
+                    return nil
+                end
+                return JSONData
+                end
+
+                local function NextCursor(ep)
+                    return game:HttpGet(API .. "&excludeFullGames=" .. tostring(ExcludefullServers) .. ((ep and "&cursor=" .. ep) or ""))
+                end
+
+                local function StartTeleport()
+                    local JSONData = EncodeToFile(readfile("Servers.JSON"))
+                    if not JSONData then
+                        writefile("Servers.JSON", game:HttpGet(API))
+                        StartTeleport()
+                    end
+                    for i = 0, 99 do
+                        if #JSONData.data <= 1 then
+                            EncodeToFile(NextCursor(JSONData.nextPageCursor))
+                            TeleportService:Teleport(game.PlaceId, game.Players.LocalPlayer)
+                        end
+                        if JSONData.data[i] then
+                            local JobId = JSONData.data[i].id
+                            table.remove(JSONData.data, i)
+                            local sucess, encoded = pcall(function()
+                                return HttpService:JSONEncode(JSONData)
+                            end)
+                            writefile("Servers.JSON", encoded)
+                            if SaveTeleportAttempts then
+                                appendfile("Attempts.txt", JobId .. "\n")
+                            end
+                            TeleportService:TeleportToPlaceInstance(game.PlaceId, JobId, game.Players.LocalPlayer)
+                            task.wait(IterationSpeed)
+                        end
+                    end
+                end
+
+                local function SetMainPage()
+                    local MainPage = game:HttpGet(API)
+                    writefile("Servers.JSON", MainPage)
+                    StartTeleport()
+                end
+
+                if RemoveErrorPrompts then CoreGui:WaitForChild("RobloxGui"):WaitForChild("Modules"):WaitForChild("ErrorPrompt"):Destroy() CoreGui.RobloxPromptGui:Destroy() end
+
+                if isfile("Servers.JSON") then
+                    local success, JSONData = pcall(function()
+                        return HttpService:JSONDecode(readfile("Servers.JSON"))
+                    end)
+                    if success and JSONData then
+                        if JSONData.gameId ~= game.PlaceId then
+                            warn("Game mismatch from cache, remaking cache for --> " .. game.PlaceId)
+                            SetMainPage()
+                        end
+                        if JSONData.data and #JSONData.data >= 1 then
+                            StartTeleport()
+                        else
+                            if success and JSONData.nextPageCursor then
+                                EncodeToFile(NextCursor(JSONData.nextPageCursor))
+                                StartTeleport()
+                            else
+                                SetMainPage() --no more pages left, start over
+                            end
+                        end
+                    else
+                        SetMainPage()
+                    end
+                else
+                    SetMainPage()
+                end
+                notify("Server hopping...")
+            end
+        },
+    }
+}
